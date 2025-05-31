@@ -107,12 +107,10 @@ body{
 .logo {
   position: absolute;
   top: 60px;
-  right: 200px;
-  max-height: 190px; 
+  left: 90px;
+  max-height: 180px; 
   z-index: 100; 
-  box-shadow: 0 5px 10px rgba(255, 254, 254, 0.767);
 }
-
 .container {
   margin-top: 90px; 
 }
