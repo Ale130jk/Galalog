@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Dashboard Almacenero - Galaga</title>
+  <link rel="stylesheet" href="almacenero.css"/>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+</head>
+<body>
+  <header>
+    <h1>📦 Panel del Almacenero - Galaga</h1>
+  </header>
+
+  <nav>
+    <ul>
+      <li><a href="#">🏠 Inicio</a></li>
+      <li><a href="#">➕ Registrar Producto</a></li>
+      <li><a href="#" class="logout">🚪 Cerrar Sesión</a></li>
+    </ul>
+  </nav>
+
+  <main>
+    <section class="formulario">
+      <h2>➕ Registrar Producto</h2>
+      <form id="form-producto">
+        <label>ID del Producto:</label>
+        <input type="text" id="id" placeholder="Ej: PROD001" required>
+
+        <label>Nombre del Producto:</label>
+        <input type="text" id="nombre" placeholder="Ej: Cargador USB" required>
+
+        <label>Empresa Destino:</label>
+        <input type="text" id="empresa" placeholder="Ej: MercadoLibre" required>
+
+        <label>Fecha de Entrega del Producto:
+        <input type="date" id="fecha" required>
+        </label>
+
+        <div class="acciones">
+          <button type="submit">📤 Agregar</button>
+          <button type="button" id="actualizar">🔄 Actualizar</button>
+          <button type="button" id="limpiar">🧹 Limpiar</button>
+        </div>
+      </form>
+      <div id="mensaje" class="mensaje"></div>
+    </section>
+    <section class="productos">
+      <h2>📋 Productos Registrados</h2>
+      <ul id="lista-productos"></ul>
+    </section>
+  </main>
+  <footer>
+    <p>&copy; 2025 Galaga - Almacenero</p>
+  </footer>
+  <script>
+    const form = document.getElementById('form-producto');
+    const lista = document.getElementById('lista-productos');
+    const mensaje = document.getElementById('mensaje');
+    const btnActualizar = document.getElementById('actualizar');
+    const btnLimpiar = document.getElementById('limpiar');
+
+    let productos = JSON.parse(localStorage.getItem('productos')) || [];
+    let editando = null;
+
+    function renderProductos() {
+      lista.innerHTML = '';
+      productos.forEach((prod, index) => {
+        const li = document.createElement('li');
+        li.innerHTML = `
+          <div>
+            <strong>ID:</strong> ${prod.id} <br>
+            <strong>Nombre:</strong> ${prod.nombre} <br>
+            <strong>Empresa:</strong> ${prod.empresa} <br>
+            <strong>Entrega:</strong> ${prod.fecha}
+          </div>
+          <div class="botones">
+            <button onclick="editarProducto(${index})">✏️</button>
+            <button onclick="eliminarProducto(${index})">❌</button>
+          </div>
+        `;
+        lista.appendChild(li);
+      });
+    }
+
+    function limpiarFormulario() {
+      form.reset();
+      editando = null;
+      btnActualizar.disabled = true;
+    }
+
+    function editarProducto(index) {
+      const prod = productos[index];
+      document.getElementById('id').value = prod.id;
+      document.getElementById('nombre').value = prod.nombre;
+      document.getElementById('empresa').value = prod.empresa;
+      document.getElementById('fecha').value = prod.fecha;
+      editando = index;
+      btnActualizar.disabled = false;
+    }
+
+    function eliminarProducto(index) {
+      productos.splice(index, 1);
+      localStorage.setItem('productos', JSON.stringify(productos));
+      renderProductos();
+    }
+
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      const id = document.getElementById('id').value.trim();
+      const nombre = document.getElementById('nombre').value.trim();
+      const empresa = document.getElementById('empresa').value.trim();
+      const fecha = document.getElementById('fecha').value;
+
+      if (!id || !nombre || !empresa || !fecha) {
+        mensaje.textContent = '❌ Todos los campos son obligatorios.';
+        mensaje.style.color = 'red';
+        return;
+      }
+
+      if (productos.some(p => p.id === id)) {
+        mensaje.textContent = '🔒 Ese ID ya existe, edítalo si quieres modificar.';
+        mensaje.style.color = 'orange';
+        return;
+      }
+
+      productos.push({ id, nombre, empresa, fecha });
+      localStorage.setItem('productos', JSON.stringify(productos));
+      renderProductos();
+      mensaje.textContent = '✅ Producto agregado correctamente.';
+      mensaje.style.color = 'green';
+      form.reset();
+    });
+
+    btnActualizar.addEventListener('click', () => {
+      if (editando === null) return;
+      const id = document.getElementById('id').value.trim();
+      const nombre = document.getElementById('nombre').value.trim();
+      const empresa = document.getElementById('empresa').value.trim();
+      const fecha = document.getElementById('fecha').value;
+
+      productos[editando] = { id, nombre, empresa, fecha };
+      localStorage.setItem('productos', JSON.stringify(productos));
+      mensaje.textContent = '🔄 Producto actualizado.';
+      mensaje.style.color = 'blue';
+      renderProductos();
+      limpiarFormulario();
+    });
+
+    btnLimpiar.addEventListener('click', limpiarFormulario);
+
+    renderProductos();
+    btnActualizar.disabled = true;
+  </script>
+  <script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const logoutBtn = document.querySelector('.logout');
+    if (logoutBtn) {
+      logoutBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        sessionStorage.removeItem('usuarioActivo');
+        window.location.href = 'index.html';
+      });
+    }
+  });
+</script>
+
+</body>
+</html>
