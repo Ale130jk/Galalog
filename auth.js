@@ -1,109 +1,115 @@
-document.addEventListener('DOMContentLoaded', function () {
-  const regForm = document.getElementById('register-form');
+// auth.js
+import { supabase } from './supabaseClient.js';
+
+document.addEventListener('DOMContentLoaded', () => {
   const loginForm = document.getElementById('login-form');
+  const mensajeLogin = document.getElementById('login-error-message');
+  const usernameInput = document.getElementById('login-username');
+  const passwordInput = document.getElementById('login-password');
+  const btnLogin = document.getElementById('login-button');
 
-  if (regForm) {
-    document.getElementById('register-button').addEventListener('click', function () {
-      const nombre = document.getElementById('reg-nombre').value.trim();
-      const apellido = document.getElementById('reg-apellido').value.trim();
-      const username = document.getElementById('reg-username').value.trim();
-      const email = document.getElementById('reg-email').value.trim();
-      const password = document.getElementById('reg-password').value;
-      const confirmPassword = document.getElementById('reg-confirm-password').value;
-      const rol = document.getElementById('reg-rol').value;
-      const regMessage = document.getElementById('register-message');
+  let intentos = parseInt(localStorage.getItem('intentosFallidos')) || 0;
+  let bloqueoHasta = parseInt(localStorage.getItem('bloqueoHasta')) || 0;
 
-      // Validaciones
-      if (!nombre || !apellido || !username || !email || !password || !confirmPassword || !rol) {
-        regMessage.textContent = '❌ Todos los campos son obligatorios.';
-        regMessage.style.color = 'red';
-        return;
-      }
+  function mostrarMensaje(texto, color = 'red') {
+    if (mensajeLogin) {
+      mensajeLogin.textContent = texto;
+      mensajeLogin.style.color = color;
+      mensajeLogin.style.fontWeight = 'bold';
+    }
 
-      if (password !== confirmPassword) {
-        regMessage.textContent = '❌ Las contraseñas no coinciden.';
-        regMessage.style.color = 'red';
-        return;
-      }
-
-      const usuarios = JSON.parse(localStorage.getItem('usuarios')) || [];
-
-      if (usuarios.some(u => u.username === username)) {
-        regMessage.textContent = '⚠️ El usuario ya existe.';
-        regMessage.style.color = 'orange';
-        return;
-      }
-
-      usuarios.push({ username, password, rol });
-      localStorage.setItem('usuarios', JSON.stringify(usuarios));
-
-      regMessage.textContent = '✅ Usuario registrado con éxito. Redirigiendo...';
-      regMessage.style.color = 'green';
-      regForm.reset();
-
+    const toast = document.getElementById('login-toast');
+    if (toast) {
+      toast.className = `toast show`;
+      toast.textContent = texto;
       setTimeout(() => {
-        window.location.href = 'index.html';
-      }, 2000);
-    });
+        toast.classList.remove('show');
+      }, 4000);
+    }
+  }
+
+  function iniciarBloqueoVisual() {
+    const ahora = Date.now();
+    const tiempoRestante = Math.ceil((bloqueoHasta - ahora) / 1000);
+    btnLogin.disabled = true;
+    usernameInput.disabled = true;
+    passwordInput.disabled = true;
+
+    mostrarMensaje(`⛔ Bloqueado. Espera ${tiempoRestante}s para intentar de nuevo.`);
+
+    alert(`⛔ Has sido bloqueado por 60 segundos.`);
+
+    const interval = setInterval(() => {
+      const tiempo = Math.ceil((bloqueoHasta - Date.now()) / 1000);
+      if (tiempo <= 0) {
+        clearInterval(interval);
+        localStorage.removeItem('bloqueoHasta');
+        localStorage.setItem('intentosFallidos', '0');
+        btnLogin.disabled = false;
+        usernameInput.disabled = false;
+        passwordInput.disabled = false;
+        mostrarMensaje('');
+      } else {
+        mostrarMensaje(`⛔ Bloqueado. Espera ${tiempo}s para intentar de nuevo.`);
+      }
+    }, 1000);
+  }
+
+  if (Date.now() < bloqueoHasta) {
+    iniciarBloqueoVisual();
+    return;
   }
 
   if (loginForm) {
-    loginForm.addEventListener('submit', function (e) {
+    loginForm.addEventListener('submit', async (e) => {
       e.preventDefault();
 
-      const username = document.getElementById('login-username').value.trim();
-      const password = document.getElementById('login-password').value.trim();
-      const errorMessage = document.getElementById('login-error-message');
+      const username = usernameInput.value.trim();
+      const password = passwordInput.value.trim();
 
-      const usuariosFijos = [
-        { username: 'almacenero1', password: '1234', rol: 'almacenero' },
-        { username: 'jefe1', password: 'admin', rol: 'jefe' }
-      ];
+      if (!username || !password) {
+        mostrarMensaje('❌ Debes ingresar usuario y contraseña.');
+        alert('❌ Debes ingresar usuario y contraseña.');
+        return;
+      }
 
-      const usuariosLocales = JSON.parse(localStorage.getItem('usuarios')) || [];
-      const usuarios = usuariosFijos.concat(usuariosLocales);
+      const { data: user, error } = await supabase
+        .from('usuarios')
+        .select('*')
+        .eq('username', username)
+        .eq('password', password)
+        .maybeSingle();
 
-      const usuario = usuarios.find(u => u.username === username && u.password === password);
+      if (error || !user) {
+        intentos++;
+        localStorage.setItem('intentosFallidos', intentos);
 
-      if (usuario) {
-        sessionStorage.setItem('usuarioActual', JSON.stringify(usuario));
-        const destino = usuario.rol === 'almacenero' ? 'dashboard-almacenero.html' : 'dashboard-jefe.html';
-        window.location.href = destino;
+        if (intentos >= 3) {
+          const bloqueo = Date.now() + 60000; // 60 segundos
+          localStorage.setItem('bloqueoHasta', bloqueo);
+          bloqueoHasta = bloqueo;
+          iniciarBloqueoVisual();
+        } else {
+          mostrarMensaje(`❌ Usuario o contraseña incorrectos. Intento ${intentos}/3.`);
+          alert(`❌ Usuario o contraseña incorrectos. Intento ${intentos}/3.`);
+        }
+        return;
+      }
+
+      // ✅ Inicio exitoso
+      localStorage.setItem('intentosFallidos', '0');
+      sessionStorage.setItem('usuarioActual', JSON.stringify(user));
+
+      alert('✅ Inicio de sesión exitoso.');
+
+      if (user.rol === 'almacenero') {
+        window.location.href = 'dashboard-almacenero.html';
+      } else if (user.rol === 'jefe') {
+        window.location.href = 'dashboard-jefe.html';
       } else {
-        errorMessage.textContent = '❌ Usuario o contraseña incorrectos.';
-        errorMessage.style.color = 'red';
+        mostrarMensaje('⚠️ Rol no reconocido.');
+        alert('⚠️ Rol no reconocido.');
       }
     });
-  }
-});
-
-
-document.getElementById('login-form').addEventListener('submit', function (e) {
-  e.preventDefault();
-
-  const username = document.getElementById('login-username').value.trim();
-  const password = document.getElementById('login-password').value.trim();
-  const errorMessage = document.getElementById('login-error-message');
-
-  const usuariosFijos = [
-    { username: 'almacenero1', password: '1234', rol: 'almacenero' },
-    { username: 'jefe1', password: 'admin', rol: 'jefe' }
-  ];
-
-  const usuariosLocales = JSON.parse(localStorage.getItem('usuarios')) || [];
-  const usuarios = usuariosFijos.concat(usuariosLocales);
-
-  const usuario = usuarios.find(u => u.username === username && u.password === password);
-
-  if (usuario) {
-    sessionStorage.setItem('usuarioActual', JSON.stringify(usuario));
-    if (usuario.rol === 'almacenero') {
-      window.location.href = 'dashboard-almacenero.html';
-    } else if (usuario.rol === 'jefe') {
-      window.location.href = 'dashboard-jefe.html';
-    }
-  } else {
-    errorMessage.textContent = '❌ Usuario o contraseña incorrectos.';
-    errorMessage.style.color = 'red';
   }
 });
