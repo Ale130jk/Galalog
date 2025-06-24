@@ -11,157 +11,158 @@
   <header>
     <h1>📊 Panel del Empleado de Logística - Galaga</h1>
   </header>
+
   <nav>
     <ul>
-      <li><a href="#">🏠 Inicio</a></li>
-      <li><a href="#">📋 Ver Productos</a></li>
-      <li><a href="#">📄 Reportes</a></li>
+      <li><a href="#inicio">🏠 Inicio</a></li>
+      <li><a href="#productos">📋 Ver Productos</a></li>
+      <li><a href="#reportes">📄 Reportes</a></li>
       <li><a href="#" class="logout">🚪 Cerrar Sesión</a></li>
     </ul>
   </nav>
-  <main>
-    <section class="verificacion">
-      <h2>🔍 Verificar Producto</h2>
-      <form id="verificacion-form">
-        <label for="codigo">Código del Producto:</label>
-        <input type="text" id="codigo" required placeholder="Ej: PROD001" />
-        <button type="submit">✅ Validar</button>
-      </form>
-      <div id="mensaje-validacion" class="mensaje"></div>
-    </section>
-    <section class="productos">
-      <h2>📦 Productos Registrados</h2>
-      <ul id="lista-productos">
-        <!-- Se insertan dinámicamente -->
-      </ul>
-    </section>
 
-    <section class="reportes">
-      <h2>📄 Generar Reporte</h2>
-      <p>Haz clic para generar un informe del stock actual.</p>
-      <button id="generar-reporte">📥 Generar Reporte </button>
-      <div id="mensaje-reporte" class="mensaje"></div>
-    </section>
+  <main id="inicio">
+    <div class="contenido-flex">
+      <div class="izquierda">
+        <section class="verificacion" id="verificacion">
+          <h2>🔍 Verificar Producto</h2>
+          <form id="verificacion-form">
+            <label for="codigo">Código del Producto:</label>
+            <input type="text" id="codigo" required placeholder="Ej: PROD001" />
+            <button type="submit">✅ Validar</button>
+          </form>
+          <div id="mensaje-validacion" class="mensaje"></div>
+        </section>
+
+        <section class="productos" id="productos">
+          <h2>📦 Productos Registrados</h2>
+          <ul id="lista-productos">
+            <!-- Se insertan dinámicamente -->
+          </ul>
+        </section>
+      </div>
+
+      <section class="reportes" id="reportes">
+        <h2>📄 Generar Reporte</h2>
+        <p>Haz clic para generar un informe del stock actual.</p>
+        <button id="generar-reporte">📥 Generar Reporte</button>
+
+        <div id="mensaje-reporte" class="mensaje"></div>
+      </section>
+    </div>
   </main>
+
   <footer>
     <p>&copy; 2025 Galaga - Panel del Jefe</p>
   </footer>
-  <script>
-    const productos = JSON.parse(localStorage.getItem('productos')) || [];
-    const lista = document.getElementById('lista-productos');
-    const form = document.getElementById('verificacion-form');
-    const mensajeValidacion = document.getElementById('mensaje-validacion');
-    const mensajeReporte = document.getElementById('mensaje-reporte');
-    function renderProductos() {
-      if (productos.length === 0) {
-        lista.innerHTML = '<li class="vacio">No hay productos registrados.</li>';
-        return;
-      }
-      lista.innerHTML = '';
-      productos.forEach(p => {
-        const li = document.createElement('li');
-        li.innerHTML = `
-          <strong>${p.id}</strong>: ${p.nombre} — <em>${p.empresa}</em> (${p.fecha})
-        `;
-        lista.appendChild(li);
-      });
-    }
-    renderProductos();
-    form.addEventListener('submit', function(e) {
-      e.preventDefault();
-      const codigo = document.getElementById('codigo').value.trim();
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+ <script type="module">
+  import { supabase } from './supabaseClient.js';
 
-      if (!codigo) {
-        mensajeValidacion.textContent = "❌ Debes ingresar un código.";
-        mensajeValidacion.style.color = "red";
-        return;
-      }
-      const existe = productos.some(p => p.id === codigo);
-      if (existe) {
-        mensajeValidacion.textContent = "✅ Producto válido y registrado.";
-        mensajeValidacion.style.color = "green";
-      } else {
-        mensajeValidacion.textContent = "🚫 Código inválido. No existe en el sistema.";
-        mensajeValidacion.style.color = "red";
-      }
-    });
-    document.getElementById('generar-reporte').addEventListener('click', () => {
-      if (productos.length === 0) {
-        mensajeReporte.textContent = "⚠️ No hay productos para generar un reporte.";
-        mensajeReporte.style.color = "orange";
-      } else {
-        mensajeReporte.textContent = "📄 Reporte generado correctamente (simulado).";
-        mensajeReporte.style.color = "green";
-      }
-    });
-  </script>
-  <script src="session-check.js"></script>
-  <script>
-  productos = JSON.parse(localStorage.getItem('productos')) || [];
-  lista = document.getElementById('lista-productos');
-  form = document.getElementById('verificar-form');
-  mensajeValidacion = document.getElementById('mensaje-validacion');
-  mensajeReporte = document.getElementById('mensaje-reporte');
-    
-    function renderProductos() {
-      if (productos.length === 0) {
-        lista.innerHTML = '<li class="vacio">No hay productos registrados.</li>';
-        return;
-      }
-      lista.innerHTML = '';
-      productos.forEach(p => {
-        const li = document.createElement('li');
-        li.innerHTML = `
-          <strong>${p.id}</strong>: ${p.nombre} — <em>${p.empresa}</em> (${p.fecha})
-        `;
-        lista.appendChild(li);
-      });
-    }
-    
-    renderProductos();
-    
-    form.addEventListener('submit', function(e) {
-      e.preventDefault();
-      const codigo = document.getElementById('codigo').value.trim();
+  const lista = document.getElementById('lista-productos');
+  const form = document.getElementById('verificacion-form');
+  const mensajeValidacion = document.getElementById('mensaje-validacion');
+  const mensajeReporte = document.getElementById('mensaje-reporte');
 
-      if (!codigo) {
-        mensajeValidacion.textContent = "❌ Debes ingresar un código.";
-        mensajeValidacion.style.color = "red";
-        return;
-      }
-      
-      const existe = productos.some(p => p.id === codigo);
-      if (existe) {
-        mensajeValidacion.textContent = "✅ Producto válido y registrado.";
-        mensajeValidacion.style.color = "green";
-      } else {
-        mensajeValidacion.textContent = "🚫 Código inválido. No existe en el sistema.";
-        mensajeValidacion.style.color = "red";
-      }
+  let productos = [];
+
+  async function cargarProductos() {
+    const { data, error } = await supabase
+      .from('productos')
+      .select('*')
+      .order('fecha_entrega', { ascending: true });
+
+    if (error) {
+      console.error('❌ Error al obtener productos:', error.message);
+      lista.innerHTML = '<li class="vacio">Error al cargar productos.</li>';
+      return;
+    }
+
+    productos = data;
+    if (productos.length === 0) {
+      lista.innerHTML = '<li class="vacio">No hay productos registrados.</li>';
+      return;
+    }
+
+    lista.innerHTML = '';
+    productos.forEach(p => {
+      const li = document.createElement('li');
+      li.innerHTML = `
+        <strong>${p.id}</strong>: ${p.nombre_producto} — <em>${p.empresa}</em> (${p.fecha_entrega} ${p.hora_entrega})
+      `;
+      lista.appendChild(li);
     });
-    
-    document.getElementById('generar-reporte').addEventListener('click', () => {
-      if (productos.length === 0) {
-        mensajeReporte.textContent = "⚠️ No hay productos para generar un reporte.";
-        mensajeReporte.style.color = "orange";
-      } else {
-        mensajeReporte.textContent = "📄 Reporte generado correctamente (simulado).";
-        mensajeReporte.style.color = "green";
-      }
-    });
-    </script>
-    <script>
-  document.addEventListener('DOMContentLoaded', () => {
-    const logoutBtn = document.querySelector('.logout');
-    if (logoutBtn) {
-      logoutBtn.addEventListener('click', (e) => {
-        e.preventDefault();
-        sessionStorage.removeItem('usuarioActivo');
-        window.location.href = 'index.html';
-      });
+  }
+
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    const codigo = document.getElementById('codigo').value.trim();
+    if (!codigo) {
+      mensajeValidacion.textContent = "❌ Debes ingresar un código.";
+      mensajeValidacion.style.color = "red";
+      return;
+    }
+    const existe = productos.some(p => p.id === codigo);
+    if (existe) {
+      mensajeValidacion.textContent = "✅ Producto válido y registrado.";
+      mensajeValidacion.style.color = "green";
+    } else {
+      mensajeValidacion.textContent = "🚫 Código inválido. No existe en el sistema.";
+      mensajeValidacion.style.color = "red";
     }
   });
+
+  document.getElementById('generar-reporte').addEventListener('click', () => {
+    if (productos.length === 0) {
+      mensajeReporte.textContent = "⚠️ No hay productos para generar un reporte.";
+      mensajeReporte.style.color = "orange";
+      return;
+    }
+
+    const data = productos.map(p => ({
+      ID: p.id,
+      Nombre: p.nombre_producto,
+      Empresa: p.empresa,
+      Cantidad: p.cantidad,
+      'Fecha Ingreso': `${p.fecha_entrega} ${p.hora_entrega}`,
+      'Fecha Salida': `${p.fecha_salida} ${p.hora_salida}`
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Productos");
+
+    const hoy = new Date().toISOString().split("T")[0];
+    const nombreArchivo = `Reporte_Productos_Galaga_${hoy}.xlsx`;
+
+    XLSX.writeFile(wb, nombreArchivo);
+    mensajeReporte.textContent = "📄 Reporte generado y descargado correctamente.";
+    mensajeReporte.style.color = "green";
+  });
+
+  document.querySelector('.logout').addEventListener('click', (e) => {
+    e.preventDefault();
+    sessionStorage.removeItem('usuarioActivo');
+    window.location.href = 'index.html';
+  });
+
+  // 🔁 Cargar productos al iniciar
+  cargarProductos();
+
+  // 🧹 Cerrar sesión
+  const logoutBtn = document.querySelector('.logout');
+  if (logoutBtn) {
+    logoutBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      sessionStorage.removeItem('usuarioActivo');
+      window.location.href = 'index.html';
+    });
+  }
 </script>
+
+<script type="module" src="supabaseClient.js"></script>
+
+
 
 </body>
 </html>
