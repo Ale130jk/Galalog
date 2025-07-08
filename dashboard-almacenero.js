@@ -4,33 +4,40 @@ let userId = null;
 let editandoId = null;
 
 document.addEventListener('DOMContentLoaded', async () => {
-  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  // ✅ Verificar sesión usando sessionStorage (igual que en auth.js)
+  const usuarioActual = JSON.parse(sessionStorage.getItem('usuarioActual'));
 
-  if (userError || !user) {
+  if (!usuarioActual) {
     alert("⚠️ No has iniciado sesión.");
     window.location.href = 'index.html';
     return;
   }
 
-  userId = user.id;
+  // ✅ Usar el ID del usuario desde la sesión guardada
+  userId = usuarioActual.id;
+  
+  console.log('Usuario actual:', usuarioActual);
+  console.log('User ID:', userId);
 
   const form = document.getElementById('form-producto');
   const btnActualizar = document.getElementById('actualizar');
   const btnLimpiar = document.getElementById('limpiar');
 
-  // Cargar productos
+  // Cargar productos al inicio
   await cargarProductos();
 
+  // 📝 Manejar envío del formulario
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
 
     const id = document.getElementById('id').value.trim();
-    const nombre = document.getElementById('nombre_producto').value.trim(); // aquí usamos el id correcto del input
+    const nombre = document.getElementById('nombre_producto').value.trim();
     const empresa = document.getElementById('empresa').value.trim();
     const cantidad = document.getElementById('cantidad').value.trim();
     const fechaIngreso = document.getElementById('fecha_ingreso').value;
     const fechaSalida = document.getElementById('fecha_salida').value;
 
+    // Validaciones
     if (!id || !nombre || !empresa || !cantidad || !fechaIngreso || !fechaSalida) {
       mostrarMensaje('❌ Todos los campos son obligatorios.', 'error');
       return;
@@ -46,10 +53,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
 
+    // Preparar datos para insertar
     const datos = {
-      id, // solo si tú quieres controlar el UUID; si no, elimínalo
-      nombre_producto: nombre, // ✅ campo correcto según Supabase
-      empresa, // ⚠️ asegúrate que esta columna exista, o elimina si no
+      id: id,
+      nombre_producto: nombre,
+      empresa: empresa,
       cantidad: parseInt(cantidad),
       fecha_entrega: fechaIngreso.split('T')[0],
       hora_entrega: fechaIngreso.split('T')[1],
@@ -58,11 +66,17 @@ document.addEventListener('DOMContentLoaded', async () => {
       creado_por: userId
     };
 
+    console.log('Datos a insertar:', datos);
+
     if (editandoId) {
-      mostrarMensaje('✏️ Edición aún no implementada.', 'error');
+      // Modo edición (por implementar)
+      mostrarMensaje('✏️ Función de edición aún no implementada.', 'error');
     } else {
+      // Modo inserción
       const { error } = await supabase.from('productos').insert([datos]);
+      
       if (error) {
+        console.error('Error al insertar:', error);
         mostrarMensaje('❌ Error al guardar: ' + error.message, 'error');
       } else {
         mostrarMensaje('✅ Producto agregado correctamente.', 'success');
@@ -72,16 +86,25 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
+  // 🧹 Limpiar formulario
   btnLimpiar.addEventListener('click', () => {
     form.reset();
     editandoId = null;
-    btnActualizar.disabled = true;
+    if (btnActualizar) {
+      btnActualizar.disabled = true;
+    }
+    mostrarMensaje('');
   });
 });
 
-// 📄 Mostrar productos
+// 📄 Cargar y mostrar productos
 async function cargarProductos() {
-  if (!userId) return;
+  if (!userId) {
+    console.log('No hay userId disponible');
+    return;
+  }
+
+  console.log('Cargando productos para userId:', userId);
 
   const { data, error } = await supabase
     .from('productos')
@@ -90,10 +113,24 @@ async function cargarProductos() {
     .order('fecha_entrega', { ascending: true });
 
   const lista = document.getElementById('lista-productos');
+  
+  if (!lista) {
+    console.error('No se encontró el elemento lista-productos');
+    return;
+  }
+
   lista.innerHTML = '';
 
   if (error) {
+    console.error('Error al cargar productos:', error);
     mostrarMensaje('❌ Error al cargar productos: ' + error.message, 'error');
+    return;
+  }
+
+  console.log('Productos cargados:', data);
+
+  if (!data || data.length === 0) {
+    lista.innerHTML = '<tr><td colspan="7">No hay productos registrados</td></tr>';
     return;
   }
 
@@ -102,11 +139,13 @@ async function cargarProductos() {
     fila.innerHTML = `
       <td>${prod.id}</td>
       <td>${prod.nombre_producto}</td>
-      <td>${prod.empresa || ''}</td>
+      <td>${prod.empresa || 'N/A'}</td>
       <td>${prod.cantidad}</td>
       <td>${prod.fecha_entrega} ${prod.hora_entrega}</td>
       <td>${prod.fecha_salida} ${prod.hora_salida}</td>
-      <td><button onclick="eliminarProducto('${prod.id}')">❌</button></td>
+      <td>
+        <button onclick="eliminarProducto('${prod.id}')" class="btn-eliminar">❌</button>
+      </td>
     `;
     lista.appendChild(fila);
   });
@@ -117,19 +156,39 @@ window.eliminarProducto = async function (id) {
   const confirmar = confirm('¿Estás seguro de eliminar este producto?');
   if (!confirmar) return;
 
-  const { error } = await supabase.from('productos').delete().eq('id', id);
+  console.log('Eliminando producto con ID:', id);
+
+  const { error } = await supabase
+    .from('productos')
+    .delete()
+    .eq('id', id)
+    .eq('creado_por', userId); // Seguridad adicional
+
   if (error) {
+    console.error('Error al eliminar:', error);
     mostrarMensaje('❌ Error al eliminar: ' + error.message, 'error');
   } else {
-    mostrarMensaje('✅ Producto eliminado.', 'success');
+    mostrarMensaje('✅ Producto eliminado correctamente.', 'success');
     await cargarProductos();
   }
 };
 
-// 💬 Mostrar mensajes
-function mostrarMensaje(texto, tipo) {
+// 💬 Mostrar mensajes al usuario
+function mostrarMensaje(texto, tipo = '') {
   const mensaje = document.getElementById('mensaje');
-  if (!mensaje) return;
+  if (!mensaje) {
+    console.log('Mensaje:', texto);
+    return;
+  }
+  
   mensaje.textContent = texto;
   mensaje.className = `mensaje ${tipo}`;
+  
+  // Limpiar mensaje después de 5 segundos si es éxito
+  if (tipo === 'success') {
+    setTimeout(() => {
+      mensaje.textContent = '';
+      mensaje.className = 'mensaje';
+    }, 5000);
+  }
 }
