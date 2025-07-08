@@ -4,7 +4,7 @@ let userId = null;
 let editandoId = null;
 
 document.addEventListener('DOMContentLoaded', async () => {
-  // ✅ Verificar sesión usando sessionStorage (igual que en auth.js)
+  // ✅ Obtener usuario desde sessionStorage (sistema personalizado)
   const usuarioActual = JSON.parse(sessionStorage.getItem('usuarioActual'));
 
   if (!usuarioActual) {
@@ -13,20 +13,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     return;
   }
 
-  // ✅ Usar el ID del usuario desde la sesión guardada
+  // ✅ Usar el ID del usuario desde tu sistema personalizado
   userId = usuarioActual.id;
-  
-  console.log('Usuario actual:', usuarioActual);
-  console.log('User ID:', userId);
 
   const form = document.getElementById('form-producto');
   const btnActualizar = document.getElementById('actualizar');
   const btnLimpiar = document.getElementById('limpiar');
 
-  // Cargar productos al inicio
+  // Cargar productos
   await cargarProductos();
 
-  // 📝 Manejar envío del formulario
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
 
@@ -37,7 +33,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     const fechaIngreso = document.getElementById('fecha_ingreso').value;
     const fechaSalida = document.getElementById('fecha_salida').value;
 
-    // Validaciones
     if (!id || !nombre || !empresa || !cantidad || !fechaIngreso || !fechaSalida) {
       mostrarMensaje('❌ Todos los campos son obligatorios.', 'error');
       return;
@@ -53,11 +48,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
 
-    // Preparar datos para insertar
     const datos = {
-      id: id,
+      id_producto: id, // Cambié de 'id' a 'id_producto' para evitar conflictos
       nombre_producto: nombre,
-      empresa: empresa,
+      empresa_destino: empresa, // Cambié de 'empresa' a 'empresa_destino' para ser más específico
       cantidad: parseInt(cantidad),
       fecha_entrega: fechaIngreso.split('T')[0],
       hora_entrega: fechaIngreso.split('T')[1],
@@ -66,17 +60,25 @@ document.addEventListener('DOMContentLoaded', async () => {
       creado_por: userId
     };
 
-    console.log('Datos a insertar:', datos);
-
     if (editandoId) {
-      // Modo edición (por implementar)
-      mostrarMensaje('✏️ Función de edición aún no implementada.', 'error');
-    } else {
-      // Modo inserción
-      const { error } = await supabase.from('productos').insert([datos]);
+      // ✅ Implementar edición
+      const { error } = await supabase
+        .from('productos')
+        .update(datos)
+        .eq('id', editandoId);
       
       if (error) {
-        console.error('Error al insertar:', error);
+        mostrarMensaje('❌ Error al actualizar: ' + error.message, 'error');
+      } else {
+        mostrarMensaje('✅ Producto actualizado correctamente.', 'success');
+        form.reset();
+        editandoId = null;
+        btnActualizar.disabled = true;
+        await cargarProductos();
+      }
+    } else {
+      const { error } = await supabase.from('productos').insert([datos]);
+      if (error) {
         mostrarMensaje('❌ Error al guardar: ' + error.message, 'error');
       } else {
         mostrarMensaje('✅ Producto agregado correctamente.', 'success');
@@ -86,25 +88,26 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
-  // 🧹 Limpiar formulario
+  // ✅ Implementar función de actualizar
+  btnActualizar.addEventListener('click', async () => {
+    if (!editandoId) return;
+    
+    const form = document.getElementById('form-producto');
+    const submitEvent = new Event('submit');
+    form.dispatchEvent(submitEvent);
+  });
+
   btnLimpiar.addEventListener('click', () => {
     form.reset();
     editandoId = null;
-    if (btnActualizar) {
-      btnActualizar.disabled = true;
-    }
-    mostrarMensaje('');
+    btnActualizar.disabled = true;
+    mostrarMensaje('🧹 Formulario limpiado.', 'success');
   });
 });
 
-// 📄 Cargar y mostrar productos
+// 📄 Mostrar productos
 async function cargarProductos() {
-  if (!userId) {
-    console.log('No hay userId disponible');
-    return;
-  }
-
-  console.log('Cargando productos para userId:', userId);
+  if (!userId) return;
 
   const { data, error } = await supabase
     .from('productos')
@@ -113,21 +116,12 @@ async function cargarProductos() {
     .order('fecha_entrega', { ascending: true });
 
   const lista = document.getElementById('lista-productos');
-  
-  if (!lista) {
-    console.error('No se encontró el elemento lista-productos');
-    return;
-  }
-
   lista.innerHTML = '';
 
   if (error) {
-    console.error('Error al cargar productos:', error);
     mostrarMensaje('❌ Error al cargar productos: ' + error.message, 'error');
     return;
   }
-
-  console.log('Productos cargados:', data);
 
   if (!data || data.length === 0) {
     lista.innerHTML = '<tr><td colspan="7">No hay productos registrados</td></tr>';
@@ -137,58 +131,77 @@ async function cargarProductos() {
   data.forEach((prod) => {
     const fila = document.createElement('tr');
     fila.innerHTML = `
-      <td>${prod.id}</td>
+      <td>${prod.id_producto || prod.id}</td>
       <td>${prod.nombre_producto}</td>
-      <td>${prod.empresa || 'N/A'}</td>
+      <td>${prod.empresa_destino || prod.empresa || ''}</td>
       <td>${prod.cantidad}</td>
       <td>${prod.fecha_entrega} ${prod.hora_entrega}</td>
       <td>${prod.fecha_salida} ${prod.hora_salida}</td>
       <td>
-        <button onclick="eliminarProducto('${prod.id}')" class="btn-eliminar">❌</button>
+        <button onclick="editarProducto('${prod.id}')" title="Editar">✏️</button>
+        <button onclick="eliminarProducto('${prod.id}')" title="Eliminar">❌</button>
       </td>
     `;
     lista.appendChild(fila);
   });
 }
 
+// ✏️ Editar producto
+window.editarProducto = async function (id) {
+  const { data, error } = await supabase
+    .from('productos')
+    .select('*')
+    .eq('id', id)
+    .single();
+
+  if (error) {
+    mostrarMensaje('❌ Error al cargar producto: ' + error.message, 'error');
+    return;
+  }
+
+  // Llenar el formulario con los datos del producto
+  document.getElementById('id').value = data.id_producto || data.id;
+  document.getElementById('nombre_producto').value = data.nombre_producto;
+  document.getElementById('empresa').value = data.empresa_destino || data.empresa || '';
+  document.getElementById('cantidad').value = data.cantidad;
+  
+  // Combinar fecha y hora para datetime-local
+  const fechaIngreso = `${data.fecha_entrega}T${data.hora_entrega}`;
+  const fechaSalida = `${data.fecha_salida}T${data.hora_salida}`;
+  
+  document.getElementById('fecha_ingreso').value = fechaIngreso;
+  document.getElementById('fecha_salida').value = fechaSalida;
+
+  editandoId = id;
+  document.getElementById('actualizar').disabled = false;
+  
+  mostrarMensaje('✏️ Producto cargado para edición. Modifica los campos y presiona "Actualizar".', 'success');
+};
+
 // 🗑️ Eliminar producto
 window.eliminarProducto = async function (id) {
   const confirmar = confirm('¿Estás seguro de eliminar este producto?');
   if (!confirmar) return;
 
-  console.log('Eliminando producto con ID:', id);
-
-  const { error } = await supabase
-    .from('productos')
-    .delete()
-    .eq('id', id)
-    .eq('creado_por', userId); // Seguridad adicional
-
+  const { error } = await supabase.from('productos').delete().eq('id', id);
   if (error) {
-    console.error('Error al eliminar:', error);
     mostrarMensaje('❌ Error al eliminar: ' + error.message, 'error');
   } else {
-    mostrarMensaje('✅ Producto eliminado correctamente.', 'success');
+    mostrarMensaje('✅ Producto eliminado.', 'success');
     await cargarProductos();
   }
 };
 
-// 💬 Mostrar mensajes al usuario
-function mostrarMensaje(texto, tipo = '') {
+// 💬 Mostrar mensajes
+function mostrarMensaje(texto, tipo) {
   const mensaje = document.getElementById('mensaje');
-  if (!mensaje) {
-    console.log('Mensaje:', texto);
-    return;
-  }
-  
+  if (!mensaje) return;
   mensaje.textContent = texto;
   mensaje.className = `mensaje ${tipo}`;
   
-  // Limpiar mensaje después de 5 segundos si es éxito
-  if (tipo === 'success') {
-    setTimeout(() => {
-      mensaje.textContent = '';
-      mensaje.className = 'mensaje';
-    }, 5000);
-  }
+  // Auto-ocultar después de 5 segundos
+  setTimeout(() => {
+    mensaje.textContent = '';
+    mensaje.className = 'mensaje';
+  }, 5000);
 }
